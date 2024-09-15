@@ -166,8 +166,8 @@ export function Game() {
         break;
       }
     }
-    setMultiplier(initialMultiplier);
-    console.log('Initial multiplier:', initialMultiplier);
+    setMultiplier(1); // Start from 1x
+    console.log('Initial multiplier: 1');
   };
   const handlePlay = async () => {
     if (!connected || !activeAddress) {
@@ -309,7 +309,7 @@ export function Game() {
               Autopick
             </Button>
           )}
-          {isPlaying && canCashOut && (
+          {isPlaying && canCashOut && !gameOver && (
             <Button 
               className="w-full bg-yellow-500 hover:bg-yellow-600 text-white text-xs py-1 h-8" 
               onClick={handleCashOut}
@@ -347,7 +347,7 @@ export function Game() {
           {isPlaying && (
             <div className="mt-2 bg-black bg-opacity-50 p-2 text-center rounded-md">
               <div className="text-xl font-bold">{multiplier.toFixed(2)}x</div>
-              {canCashOut && (
+              {canCashOut && !gameOver && (
                 <div className="text-sm mt-1">
                   Cash Out Available: {(betAmount * multiplier).toFixed(2)} tokens
                 </div>

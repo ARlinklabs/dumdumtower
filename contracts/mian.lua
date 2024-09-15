@@ -11,7 +11,7 @@ local function generateHash(data)
   local function calculateMultiplier(gridState)
     local multiplier = 1
     print("Calculating multiplier for grid state: " .. gridState)
-    for i = 1, #gridState do
+    for i = #gridState, 1, -1 do  -- Iterate from bottom to top
       if gridState:sub(i, i) == "1" then
         multiplier = multiplier + 0.5
         print("Row " .. i .. ": Egg found. New multiplier: " .. multiplier)
@@ -97,19 +97,17 @@ local function generateHash(data)
       
       print("Calculated Multiplier: " .. tostring(calculatedMultiplier))
   
-     
-        local winnings = betAmount * claimedMultiplier
+      if calculatedMultiplier == claimedMultiplier then
+        local winnings = math.floor(betAmount * claimedMultiplier)
         print("Winnings: " .. tostring(winnings))
-        print("Winnings: " .. winnings)
-    
+  
         -- Send the winnings to the user
-        print("Winnings sent to user: " .. tostring(winnings))
         Send({
           Target = ao.id,
           Tags = { 
             Action = "Transfer", 
             Recipient = from, 
-            Quantity = winnings
+            Quantity = tostring(winnings)
           }
         })
         
@@ -117,10 +115,18 @@ local function generateHash(data)
           Target = from,
           Action = "Winnings-Sent",
           Tags = {
-            Amount = winnings
+            Amount = tostring(winnings)
           }
         })
-      
-     
+        print("Winnings sent to user: " .. tostring(winnings))
+      else
+        -- Multiplier mismatch, potential cheating attempt
+        print("Multiplier mismatch. Claimed: " .. tostring(claimedMultiplier) .. ", Calculated: " .. tostring(calculatedMultiplier))
+        Send({
+          Target = from,
+          Action = "Claim-Rejected",
+          Message = "Multiplier mismatch detected."
+        })
+      end
     end
   )
