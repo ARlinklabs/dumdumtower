@@ -7,10 +7,10 @@ import { Card } from "@/components/ui/card"
 import { Skull, ChevronsUp } from 'lucide-react'
 import { createDataItemSigner, result, connect } from "@permaweb/aoconnect";
 
-import {  ConnectButton, useConnection } from "@arweave-wallet-kit/react";
+import {  ConnectButton, useConnection, useActiveAddress } from "@arweave-wallet-kit/react";
 
 import CryptoJS from 'crypto-js'
-
+import { placeBet } from '@/lib/hooks';
 
 // const DIFFICULTY_LEVELS = ['Easy', 'Medium', 'Hard', 'Expert', 'Master']
 const GRID_HEIGHT = 9
@@ -50,6 +50,8 @@ export function Game() {
   const [clientSeed, setClientSeed] = useState('')
   const [serverSeed, setServerSeed] = useState('')
   const [, setServerSeedHash] = useState('')
+  const activeAddress = useActiveAddress();
+  const [canCashOut, setCanCashOut] = useState(false)
 
   useEffect(() => {
     if (isPlaying && clientSeed && serverSeed) {
@@ -62,13 +64,22 @@ export function Game() {
       if (!connected) {
         throw new Error("Not connected to Arweave wallet");
       }
-
+      const register = await ao.message({
+       process :'al0r2Hwq9opOTqMmR7ue6hzrZ4f8wEzTsnxHF5756ng',
+       tags: [
+        { name: 'Action', value: 'Register' },
+      
+      ],
+      
+       signer: createDataItemSigner(window.arweaveWallet),
+      });
+      console.log("register", register);
       const response = await ao.message({
-         process: 'pLpjfAlAUgdyb6n9UjYimnL2FVXA81RIbdsZV_8jzWA',
+         process: 'al0r2Hwq9opOTqMmR7ue6hzrZ4f8wEzTsnxHF5756ng',
          tags: [{ name: 'Action', value: 'Generate-Seed' }],
          signer: createDataItemSigner(window.arweaveWallet),
       });
-      console.log("response", response);
+     // console.log("response", response);
 
       let seed;
       try {
@@ -129,45 +140,33 @@ export function Game() {
   };
 
   const handlePlay = async () => {
+    if (!connected || !activeAddress) {
+      alert("Please connect your Arweave wallet first.");
+      return;
+    }
+
     try {
+      // Place the bet
+      await placeBet(betAmount);
+      console.log("Bet placed successfully");
+
       const clientSeed = await generateClientSeed();
       const serverSeed = CryptoJS.lib.WordArray.random(128/8).toString();
       setServerSeed(serverSeed);
       setServerSeedHash(CryptoJS.SHA256(serverSeed).toString());
-      //await sendTokensToAO();
+
       setIsPlaying(true);
       setGameOver(false);
       setCurrentRow(GRID_HEIGHT - 1);
-      setMultiplier(1); // Reset multiplier to 1 at the start of each game
+      setMultiplier(1);
+      setCanCashOut(false);
       generateGrid(clientSeed, serverSeed);
     } catch (error) {
       console.error('Error starting the game:', error);
       alert('Failed to start the game. Please try again.');
     }
   };
-  // const sendTokensToAO = async () => {
-  //   if (!connected) {
-  //     throw new Error("Not connected to Arweave wallet");
-  //   }
 
-  //   const tokenId = "YOUR_TOKEN_CONTRACT_ID";
-  //   const amount = 1; // Amount of tokens to send
-  //   const target = "YOUR_AO_PROCESS_ID";
-
-  //   const tx = await createTransaction({
-  //     target: tokenId,
-  //     quantity: amount.toString(),
-  //     reward: "0",
-  //     tags: [
-  //       { name: "Action", value: "Transfer" },
-  //       { name: "Target", value: target }
-  //     ]
-  //   });
-
-  //   const signedTx = await window.arweaveWallet.dispatch(tx);
-
-  //   console.log("Token transaction sent:", signedTx);
-  //};
   const handleTileClick = (row: number, col: number) => {
     if (!isPlaying || row !== currentRow || gameOver) return
 
@@ -178,7 +177,14 @@ export function Game() {
 
     if (grid[row][col]) {
       // Found an egg
-      setMultiplier(prev => prev + 0.5) // Increment by 0.5 for each egg found
+      const newMultiplier = multiplier + 0.5
+      setMultiplier(newMultiplier)
+      
+      // Enable cash out if multiplier is 1.5x or higher
+      if (newMultiplier >= 1.5 && !canCashOut) {
+        setCanCashOut(true)
+      }
+
       if (currentRow > 0) {
         setCurrentRow(prev => prev - 1)
       } else {
@@ -188,6 +194,20 @@ export function Game() {
       // Game over
       handleLoss()
     }
+  }
+
+  const handleCashOut = () => {
+    if (!canCashOut) return
+
+    const payout = betAmount * multiplier
+    alert(`Congratulations! You've cashed out ${payout.toFixed(2)} tokens!`)
+    
+    // Here you would typically call a function to update the user's balance
+    // For example: updateUserBalance(payout)
+
+    setIsPlaying(false)
+    setGameOver(true)
+    setCanCashOut(false)
   }
 
   const handleAutopick = () => {
@@ -253,6 +273,14 @@ export function Game() {
               Autopick
             </Button>
           )}
+          {isPlaying && canCashOut && (
+            <Button 
+              className="w-full bg-yellow-500 hover:bg-yellow-600 text-white text-xs py-1 h-8" 
+              onClick={handleCashOut}
+            >
+              Cash Out ({(betAmount * multiplier).toFixed(2)})
+            </Button>
+          )}
           <ConnectButton/>
           <div className="flex-grow" /> {/* Spacer */}
         </div>
@@ -283,6 +311,11 @@ export function Game() {
           {isPlaying && (
             <div className="mt-2 bg-black bg-opacity-50 p-2 text-center rounded-md">
               <div className="text-xl font-bold">{multiplier.toFixed(2)}x</div>
+              {canCashOut && (
+                <div className="text-sm mt-1">
+                  Cash Out Available: {(betAmount * multiplier).toFixed(2)} tokens
+                </div>
+              )}
               {gameOver && (
                 <div className="text-lg font-bold mt-1">
                   {currentRow === 0 ? 'You Win!' : 'Game Over: You Lose Everything'}

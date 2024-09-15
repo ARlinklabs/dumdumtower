@@ -6,7 +6,8 @@ local function generateHash(data)
     end
     return string.format("%08x", hash)
   end
-  
+  local registeredUsers = {}
+
   -- Handler to generate a provably fair seed
   Handlers.add(
     "GenerateSeed",
@@ -30,4 +31,29 @@ local function generateHash(data)
       })
     end
   )
-  
+  -- Handler to register a user
+Handlers.add(
+    "Register",
+    Handlers.utils.hasMatchingTag("Action", "Register"),
+    function (msg)
+      local from = msg.From
+      
+      if registeredUsers[from]  then
+        -- User already registered, send a message indicating already claimed
+        print("User already registered")
+        Send({
+          Target = from,
+          Action = "Already-Claimed",
+          Message = "You have already claimed your reward."
+        })
+      else
+        -- Register the user and send the transfer message
+        registeredUsers[from] = true
+        Send({
+          Target = ao.id,
+          Tags = { Action = "Transfer", Recipient = from, Quantity = "101" }
+        })
+        print("User registered")
+      end
+    end
+  )
