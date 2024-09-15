@@ -113,11 +113,16 @@ export function Game() {
     const newGrid = Array(GRID_HEIGHT).fill(null).map(() => Array(GRID_WIDTH).fill(false))
     let hashIndex = 0
 
+    // Ensure at least one box on the bottom of any column has an egg
+    const bottomRow = GRID_HEIGHT - 1
+    const bottomEggColumn = parseInt(hash.substr(0, 2), 16) % GRID_WIDTH
+    newGrid[bottomRow][bottomEggColumn] = true
+
     const sectionHeight = Math.floor(GRID_HEIGHT / 3)
     const sections = [
       { start: 0, end: sectionHeight },
       { start: sectionHeight, end: sectionHeight * 2 },
-      { start: sectionHeight * 2, end: GRID_HEIGHT }
+      { start: sectionHeight * 2, end: GRID_HEIGHT - 1 } // Exclude the bottom row
     ]
 
     sections.forEach((section) => {
@@ -139,7 +144,8 @@ export function Game() {
       }
     })
 
-    for (let i = GRID_WIDTH * 3; i < GRID_HEIGHT; i++) {
+    // Fill remaining eggs, if any
+    for (let i = GRID_WIDTH * 3; i < GRID_HEIGHT - 1; i++) { // Exclude the bottom row
       let placed = false
       while (!placed) {
         if (hashIndex >= hash.length - 1) {
@@ -147,7 +153,7 @@ export function Game() {
           hashIndex = 0
         }
         const randomValue = parseInt(hash.substr(hashIndex, 2), 16)
-        const row = randomValue % GRID_HEIGHT
+        const row = randomValue % (GRID_HEIGHT - 1) // Exclude the bottom row
         const col = (randomValue >> 8) % GRID_WIDTH
         if (!newGrid[row][col]) {
           newGrid[row][col] = true
