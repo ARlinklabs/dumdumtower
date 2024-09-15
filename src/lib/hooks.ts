@@ -47,22 +47,22 @@ export const verifyAndClaimWinnings = async (betAmount: number, multiplier: numb
   
       if (Array.isArray(Messages) && Messages.length > 0) {
         const winningsSentMessage = Messages.find(msg => 
-          msg.Tags.some(tag => tag.name === 'Action' && tag.value === 'Winnings-Sent')
+          msg.Tags.some((tag: { name: string; value: string }) => tag.name === 'Action' && tag.value === 'Winnings-Sent')
         );
   
         if (winningsSentMessage) {
-          const amountTag = winningsSentMessage.Tags.find(tag => tag.name === 'Amount');
+          const amountTag = winningsSentMessage.Tags.find((tag: { name: string; value: string })  => tag.name === 'Amount');
           if (amountTag) {
             return parseFloat(amountTag.value);
           }
         }
   
         const invalidClaimMessage = Messages.find(msg => 
-          msg.Tags.some(tag => tag.name === 'Action' && tag.value === 'Invalid-Claim')
+          msg.Tags.some((tag: { name: string; value: string }) => tag.name === 'Action' && tag.value === 'Invalid-Claim')
         );
   
         if (invalidClaimMessage) {
-          const messageTag = invalidClaimMessage.Tags.find(tag => tag.name === 'Message');
+          const messageTag = invalidClaimMessage.Tags.find((tag: { name: string; value: string }) => tag.name === 'Message');
           throw new Error(messageTag ? messageTag.value : 'Invalid claim');
         }
       }
