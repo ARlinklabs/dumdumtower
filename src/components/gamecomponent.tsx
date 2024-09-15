@@ -149,6 +149,19 @@ export function Game() {
     console.log('Initial multiplier: 1')
   }
 
+  const resetGameState = () => {
+    setIsPlaying(false)
+    setGameOver(false)
+    setCurrentRow(GRID_HEIGHT - 1)
+    setMultiplier(1)
+    setCanCashOut(false)
+    setGrid(Array(GRID_HEIGHT).fill(null).map(() => Array(GRID_WIDTH).fill(false)))
+    setRevealedGrid(Array(GRID_HEIGHT).fill(null).map(() => Array(GRID_WIDTH).fill(false)))
+    setClientSeed('')
+    setServerSeed('')
+    setServerSeedHash('')
+  }
+
   const handlePlay = async () => {
     if (!connected || !activeAddress) {
       alert("Please connect your Arweave wallet first.")
@@ -216,9 +229,7 @@ export function Game() {
       const payout = await verifyAndClaimWinnings(betAmount, multiplier, gridState)
       alert(`Congratulations! You've cashed out ${payout.toFixed(2)} tokens!`)
       
-      setIsPlaying(false)
-      setGameOver(true)
-      setCanCashOut(false)
+      resetGameState()
     } catch (error) {
       console.error('Error cashing out:', error)
       alert('Failed to cash out. ' + (error instanceof Error ? error.message : 'Please check wallet transaction.'))
@@ -234,7 +245,7 @@ export function Game() {
   }
 
   const handleWin = () => {
-    setGameOver(false)
+    setGameOver(true)
     // Implement win logic here (e.g., update balance)
   }
 
@@ -345,9 +356,7 @@ export function Game() {
               )}
               {gameOver && (
                 <div className="text-lg font-bold mt-1">
-                  {currentRow === 0 ? 'You Win!' :
-
- 'Game Over: You Lose Everything'}
+                  {currentRow === 0 ? 'You Win!' : 'Game Over: You Lose Everything'}
                 </div>
               )}
               {gameOver && (
