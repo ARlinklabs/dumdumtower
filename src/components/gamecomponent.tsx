@@ -59,7 +59,6 @@ export function Game() {
         ],
         signer: createDataItemSigner(window.arweaveWallet),
       })
-      console.log("register", register)
       const response = await ao.message({
         process: 'al0r2Hwq9opOTqMmR7ue6hzrZ4f8wEzTsnxHF5756ng',
         tags: [{ name: 'Action', value: 'Generate-Seed' }],
@@ -89,7 +88,6 @@ export function Game() {
           throw new Error('Seed not found in response')
         }
       } catch (error) {
-        console.error('Error processing result:', error)
         throw error
       }
 
@@ -98,7 +96,6 @@ export function Game() {
       setClientSeed(combinedSeed)
       return combinedSeed
     } catch (error) {
-      console.error('Error generating client seed:', error)
       const seed = CryptoJS.lib.WordArray.random(128/8).toString()
       setClientSeed(seed)
       return seed
@@ -110,15 +107,12 @@ export function Game() {
   }
 
   const generateGrid = (clientSeed: string, serverSeed: string) => {
-    console.log('Generating grid:', { clientSeed, serverSeed })
     const combinedSeed = clientSeed + serverSeed
     let hash = generateHash(combinedSeed)
-    console.log('Combined seed hash:', hash)
     
     const newGrid = Array(GRID_HEIGHT).fill(null).map(() => Array(GRID_WIDTH).fill(false))
     let hashIndex = 0
 
-    // Divide the grid into 3 sections (top, middle, bottom)
     const sectionHeight = Math.floor(GRID_HEIGHT / 3)
     const sections = [
       { start: 0, end: sectionHeight },
@@ -126,8 +120,7 @@ export function Game() {
       { start: sectionHeight * 2, end: GRID_HEIGHT }
     ]
 
-    // Place eggs in each section
-    sections.forEach((section, sectionIndex) => {
+    sections.forEach((section) => {
       for (let col = 0; col < GRID_WIDTH; col++) {
         let placed = false
         while (!placed) {
@@ -140,14 +133,12 @@ export function Game() {
           if (!newGrid[row][col]) {
             newGrid[row][col] = true
             placed = true
-            console.log(`Section ${sectionIndex + 1}, Column ${col + 1}: Egg placed at row ${row + 1}`)
           }
           hashIndex += 2
         }
       }
     })
 
-    // Place remaining eggs randomly
     for (let i = GRID_WIDTH * 3; i < GRID_HEIGHT; i++) {
       let placed = false
       while (!placed) {
@@ -161,7 +152,6 @@ export function Game() {
         if (!newGrid[row][col]) {
           newGrid[row][col] = true
           placed = true
-          console.log(`Additional egg placed at row ${row + 1}, column ${col + 1}`)
         }
         hashIndex += 2
       }
@@ -169,9 +159,7 @@ export function Game() {
 
     setGrid(newGrid)
     setRevealedGrid(Array(GRID_HEIGHT).fill(null).map(() => Array(GRID_WIDTH).fill(false)))
-  
     setMultiplier(1)
-    console.log('Initial multiplier: 1')
   }
 
   const resetGameState = () => {
@@ -196,7 +184,6 @@ export function Game() {
     setIsLoading(true)
     try {
       await placeBet(betAmount)
-      console.log("Bet placed successfully")
 
       const clientSeed = await generateClientSeed()
       const serverSeed = CryptoJS.lib.WordArray.random(128/8).toString()
@@ -210,7 +197,6 @@ export function Game() {
       setCanCashOut(false)
       generateGrid(clientSeed, serverSeed)
     } catch (error) {
-      console.error('Error starting the game:', error)
       alert('Failed to start the game. Please try again.')
     } finally {
       setIsLoading(false)
@@ -250,13 +236,11 @@ export function Game() {
     try {
       const gridState = grid.map(row => row.includes(true) ? '1' : '0').join('')
       
-      console.log('Cashing out with:', { betAmount, multiplier, gridState })
       const payout = await verifyAndClaimWinnings(betAmount, multiplier, gridState)
       alert(`Congratulations! You've cashed out ${payout.toFixed(2)} tokens!`)
       
       resetGameState()
     } catch (error) {
-      console.error('Error cashing out:', error)
       alert('Failed to cash out. ' + (error instanceof Error ? error.message : 'Please check wallet transaction.'))
     } finally {
       setIsLoading(false)
@@ -270,8 +254,9 @@ export function Game() {
   }
 
   const handleWin = () => {
+    setCanCashOut(true)
     setGameOver(true)
-    // Implement win logic here (e.g., update balance)
+    
   }
 
   const handleLoss = () => {
