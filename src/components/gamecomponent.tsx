@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Card } from "@/components/ui/card"
 import { Skull, ChevronsUp } from 'lucide-react'
 import { createDataItemSigner, result, connect } from "@permaweb/aoconnect";
+import { verifyAndClaimWinnings } from "@/lib/hooks";
 
 import {  ConnectButton, useConnection, useActiveAddress } from "@arweave-wallet-kit/react";
 
@@ -125,20 +126,49 @@ export function Game() {
     }
   };
 
+  const generateHash = (data: string): string => {
+    let hash = 0;
+    for (let i = 0; i < data.length; i++) {
+      hash = (hash * 31 + data.charCodeAt(i)) % 2**32;
+    }
+    let result = "";
+    for (let i = 0; i < 64; i++) {
+      result += (hash % 16).toString(16);
+      hash = Math.floor(hash / 16);
+    }
+    return result;
+  };
   const generateGrid = (clientSeed: string, serverSeed: string) => {
+    console.log('Generating grid:', { clientSeed, serverSeed });
     const combinedSeed = clientSeed + serverSeed;
-    const hash = CryptoJS.SHA256(combinedSeed).toString();
+    const hash = generateHash(combinedSeed);
+    console.log('Combined seed hash:', hash);
     
     const newGrid = Array(GRID_HEIGHT).fill(null).map((_, rowIndex) => {
       const row = Array(GRID_WIDTH).fill(false);
       const eggIndex = parseInt(hash.substr(rowIndex * 2, 2), 16) % GRID_WIDTH;
       row[eggIndex] = true;
+      console.log(`Row ${rowIndex + 1}: Egg index = ${eggIndex}`);
       return row;
     });
     setGrid(newGrid);
     setRevealedGrid(Array(GRID_HEIGHT).fill(null).map(() => Array(GRID_WIDTH).fill(false)));
+  
+    // Calculate and set the initial multiplier
+    let initialMultiplier = 1;
+    for (let i = 0; i < GRID_HEIGHT; i++) {
+      const eggIndex = parseInt(hash.substr(i * 2, 2), 16) % GRID_WIDTH;
+      if (eggIndex === 0) {  // Egg is at index 0
+        initialMultiplier += 0.5;
+        console.log(`Row ${i + 1}: Egg found. New multiplier: ${initialMultiplier}`);
+      } else {
+        console.log(`Row ${i + 1}: No egg. Breaking loop.`);
+        break;
+      }
+    }
+    setMultiplier(initialMultiplier);
+    console.log('Initial multiplier:', initialMultiplier);
   };
-
   const handlePlay = async () => {
     if (!connected || !activeAddress) {
       alert("Please connect your Arweave wallet first.");
@@ -196,19 +226,25 @@ export function Game() {
     }
   }
 
-  const handleCashOut = () => {
-    if (!canCashOut) return
-
-    const payout = betAmount * multiplier
-    alert(`Congratulations! You've cashed out ${payout.toFixed(2)} tokens!`)
-    
-    // Here you would typically call a function to update the user's balance
-    // For example: updateUserBalance(payout)
-
-    setIsPlaying(false)
-    setGameOver(true)
-    setCanCashOut(false)
-  }
+  const handleCashOut = async () => {
+    if (!canCashOut) return;
+  
+    try {
+      // Convert the grid state to a string (1 for egg, 0 for no egg)
+      const gridState = grid.map(row => row[0] ? '1' : '0').join('');
+      
+      console.log('Cashing out with:', { betAmount, multiplier, gridState });
+      const payout = await verifyAndClaimWinnings(betAmount, multiplier, gridState);
+      alert(`Congratulations! You've cashed out ${payout.toFixed(2)} tokens!`);
+      
+      setIsPlaying(false);
+      setGameOver(true);
+      setCanCashOut(false);
+    } catch (error) {
+      console.error('Error cashing out:', error);
+      alert('Failed to cash out. ' + (error instanceof Error ? error.message : 'Please check wallet transaction.'));
+    }
+  };
 
   const handleAutopick = () => {
     if (!isPlaying || gameOver) return

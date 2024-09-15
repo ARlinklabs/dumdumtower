@@ -6,8 +6,27 @@ local function generateHash(data)
     end
     return string.format("%08x", hash)
   end
+  
+  -- Function to calculate the multiplier based on the grid state
+  local function calculateMultiplier(gridState)
+    local multiplier = 1
+    print("Calculating multiplier for grid state: " .. gridState)
+    for i = 1, #gridState do
+      if gridState:sub(i, i) == "1" then
+        multiplier = multiplier + 0.5
+        print("Row " .. i .. ": Egg found. New multiplier: " .. multiplier)
+      else
+        print("Row " .. i .. ": No egg. Breaking loop.")
+        break
+      end
+    end
+    print("Final calculated multiplier: " .. multiplier)
+    return multiplier
+  end
+  
+  -- Table to keep track of registered users
   local registeredUsers = {}
-
+  
   -- Handler to generate a provably fair seed
   Handlers.add(
     "GenerateSeed",
@@ -15,30 +34,29 @@ local function generateHash(data)
     function (msg)
       local messageId = msg.Id
       
-      
-      
       -- Combine the message ID and timestamp to generate the seed
-      local seedData = messageId 
+      local seedData = messageId .. os.time()
       local seed = generateHash(seedData)
-       
       
       -- Send the seed back to the client
       Send({
         Target = msg.From,
         Action = "Seed-Generated",
-        Seed = seed,
-       
+        Tags = {
+          Seed = seed,
+        }
       })
     end
   )
+  
   -- Handler to register a user
-Handlers.add(
+  Handlers.add(
     "Register",
     Handlers.utils.hasMatchingTag("Action", "Register"),
     function (msg)
       local from = msg.From
       
-      if registeredUsers[from]  then
+      if registeredUsers[from] then
         -- User already registered, send a message indicating already claimed
         print("User already registered")
         Send({
@@ -55,5 +73,54 @@ Handlers.add(
         })
         print("User registered")
       end
+    end
+  )
+  
+  -- Handler to verify and send winnings
+  Handlers.add(
+    "VerifyAndSendWinnings",
+    Handlers.utils.hasMatchingTag("Action", "Claim-Winnings"),
+    function (msg)
+      local from = msg.From
+      local betAmount = tonumber(msg.Tags.BetAmount)
+      local claimedMultiplier = tonumber(msg.Tags.Multiplier)
+      local gridState = msg.Tags.GridState
+  
+      print("Received claim:")
+      print("From: " .. from)
+      print("Bet Amount: " .. tostring(betAmount))
+      print("Claimed Multiplier: " .. tostring(claimedMultiplier))
+      print("Grid State: " .. gridState)
+  
+      -- Verify the game result
+      local calculatedMultiplier = calculateMultiplier(gridState)
+      
+      print("Calculated Multiplier: " .. tostring(calculatedMultiplier))
+  
+     
+        local winnings = betAmount * claimedMultiplier
+        print("Winnings: " .. tostring(winnings))
+        print("Winnings: " .. winnings)
+    
+        -- Send the winnings to the user
+        print("Winnings sent to user: " .. tostring(winnings))
+        Send({
+          Target = ao.id,
+          Tags = { 
+            Action = "Transfer", 
+            Recipient = from, 
+            Quantity = winnings
+          }
+        })
+        
+        Send({
+          Target = from,
+          Action = "Winnings-Sent",
+          Tags = {
+            Amount = winnings
+          }
+        })
+      
+     
     end
   )
