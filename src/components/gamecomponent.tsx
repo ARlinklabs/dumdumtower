@@ -106,45 +106,70 @@ export function Game() {
   }
 
   const generateHash = (data: string): string => {
-    let hash = 0
-    for (let i = 0; i < data.length; i++) {
-      hash = (hash * 31 + data.charCodeAt(i)) % 2**32
-    }
-    let result = ""
-    for (let i = 0; i < 64; i++) {
-      result += (hash % 16).toString(16)
-      hash = Math.floor(hash / 16)
-    }
-    return result
+    return CryptoJS.SHA256(data).toString()
   }
 
   const generateGrid = (clientSeed: string, serverSeed: string) => {
     console.log('Generating grid:', { clientSeed, serverSeed })
     const combinedSeed = clientSeed + serverSeed
-    const hash = generateHash(combinedSeed)
+    let hash = generateHash(combinedSeed)
     console.log('Combined seed hash:', hash)
     
-    const newGrid = Array(GRID_HEIGHT).fill(null).map((_, rowIndex) => {
-      const row = Array(GRID_WIDTH).fill(false)
-      const eggIndex = parseInt(hash.substr(rowIndex * 2, 2), 16) % GRID_WIDTH
-      row[eggIndex] = true
-      console.log(`Row ${rowIndex + 1}: Egg index = ${eggIndex}`)
-      return row
+    const newGrid = Array(GRID_HEIGHT).fill(null).map(() => Array(GRID_WIDTH).fill(false))
+    let hashIndex = 0
+
+    // Divide the grid into 3 sections (top, middle, bottom)
+    const sectionHeight = Math.floor(GRID_HEIGHT / 3)
+    const sections = [
+      { start: 0, end: sectionHeight },
+      { start: sectionHeight, end: sectionHeight * 2 },
+      { start: sectionHeight * 2, end: GRID_HEIGHT }
+    ]
+
+    // Place eggs in each section
+    sections.forEach((section, sectionIndex) => {
+      for (let col = 0; col < GRID_WIDTH; col++) {
+        let placed = false
+        while (!placed) {
+          if (hashIndex >= hash.length - 1) {
+            hash = generateHash(hash)
+            hashIndex = 0
+          }
+          const randomValue = parseInt(hash.substr(hashIndex, 2), 16)
+          const row = section.start + (randomValue % (section.end - section.start))
+          if (!newGrid[row][col]) {
+            newGrid[row][col] = true
+            placed = true
+            console.log(`Section ${sectionIndex + 1}, Column ${col + 1}: Egg placed at row ${row + 1}`)
+          }
+          hashIndex += 2
+        }
+      }
     })
+
+    // Place remaining eggs randomly
+    for (let i = GRID_WIDTH * 3; i < GRID_HEIGHT; i++) {
+      let placed = false
+      while (!placed) {
+        if (hashIndex >= hash.length - 1) {
+          hash = generateHash(hash)
+          hashIndex = 0
+        }
+        const randomValue = parseInt(hash.substr(hashIndex, 2), 16)
+        const row = randomValue % GRID_HEIGHT
+        const col = (randomValue >> 8) % GRID_WIDTH
+        if (!newGrid[row][col]) {
+          newGrid[row][col] = true
+          placed = true
+          console.log(`Additional egg placed at row ${row + 1}, column ${col + 1}`)
+        }
+        hashIndex += 2
+      }
+    }
+
     setGrid(newGrid)
     setRevealedGrid(Array(GRID_HEIGHT).fill(null).map(() => Array(GRID_WIDTH).fill(false)))
   
-    let initialMultiplier = 1
-    for (let i = 0; i < GRID_HEIGHT; i++) {
-      const eggIndex = parseInt(hash.substr(i * 2, 2), 16) % GRID_WIDTH
-      if (eggIndex === 0) {
-        initialMultiplier += 0.5
-        console.log(`Row ${i + 1}: Egg found. New multiplier: ${initialMultiplier}`)
-      } else {
-        console.log(`Row ${i + 1}: No egg. Breaking loop.`)
-        break
-      }
-    }
     setMultiplier(1)
     console.log('Initial multiplier: 1')
   }
@@ -223,7 +248,7 @@ export function Game() {
 
     setIsLoading(true)
     try {
-      const gridState = grid.map(row => row[0] ? '1' : '0').join('')
+      const gridState = grid.map(row => row.includes(true) ? '1' : '0').join('')
       
       console.log('Cashing out with:', { betAmount, multiplier, gridState })
       const payout = await verifyAndClaimWinnings(betAmount, multiplier, gridState)
