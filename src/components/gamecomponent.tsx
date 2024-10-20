@@ -292,7 +292,7 @@ export function Game() {
             </Button>
           </div>
           <div>
-            <label className="block text-xs font-medium mb-1">Bet Amount</label>
+            <label className="block text-xs font-medium mb-1">Bet </label>
             <Input 
               type="number" 
               value={betAmount} 
